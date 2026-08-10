@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Painel de Treino</title>
+</head>
+<body>
+<h1>Monitor Cardíaco</h1>
+
+<!-- Botão simples chamando a função JavaScript no clique -->
+<button id="btnStart" onclick="iniciarTreino()">Começar Sessão</button>
+<button id="btnFinish" onclick="fecharTreino()">Terminar Sessão</button>
+<button id="btnOpen" onclick="openWebSocket()">open websocket</button>
+<button id="btnClose" onclick="closeWebSocket()">close websocket</button>
+<button id="btnAbruptClose" onclick="debugThing()">abruptly close websocket</button>
+
+<ul id='messages'></ul>
+
+<script src="../static/client.js"> </script>
+</body>
+</html>
