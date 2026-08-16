@@ -19,8 +19,6 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
-import android.net.wifi.WifiManager
-import android.os.PowerManager
 import android.content.Context
 import kotlin.time.Duration.Companion.milliseconds
 import androidx.wear.ongoing.OngoingActivity
