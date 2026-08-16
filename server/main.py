@@ -13,6 +13,7 @@ from aiocsv import AsyncReader, AsyncDictReader, AsyncWriter, AsyncDictWriter
 import random
 from datetime import datetime
 
+
 app = FastAPI()
 
 '''
@@ -28,18 +29,7 @@ DAILY_SESSIONS = 0
 RECOVER_SESSION = False
 RECOVER_TIMER = 0
 
-'''
-This function runs in parallel, checking to see if the client is still connected to our server.
-It returns True only when we have a successful disconnect by the client (i.e., user-driven and not abrupt).
-'''
-async def client_listener(websocket: WebSocket):
-    try:
-        while True:
-            code = await websocket.receive_text()
-            if(code == "1000"):
-                return True
-    except WebSocketDisconnect:
-        return False
+
 
 '''
 Given a .csv file, writes asynchronously to the .csv with the data.
@@ -54,17 +44,42 @@ async def write_to_file(websocket: WebSocket, filename: str, mode: str, session_
         if(session_context["recover_session"] == False): await writer.writeheader()# write header, just for da first time
         try:
             while True:
-                data = {'TIME': session_context["timer"], 'HEART_RATE': random.randrange(1, 180)}  # generate dict with datum of the moment
+                data = await websocket.receive_json() # receive payload via websocket, then write it
+
+                data["TIME"] = session_context["timer"] # backend controls time
                 await writer.writerow(data) # write on disc (file)
                 await file.flush() # clear buffer without blocking other stuff
 
-                await websocket.send_json(data) # send to frontend via websocket (json stuff)
+                await manager.broadcast(json.dumps(data))
 
-                await asyncio.sleep(1) # wait a moment to send
                 session_context["timer"] += 1
 
         except asyncio.CancelledError:
             print("Tarefa foi cancelada")
+        except WebSocketDisconnect:
+            raise
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
 
 '''
 Loads main endpoint. For now, its a basic page, just for testing.
@@ -81,12 +96,12 @@ async def get():
     return {"my message?": "nothing yet :)"}
     # csv manipulation logic here: save to disk, load from disk, analyze data, etc
 
+
 '''
 Implementation of the websocket itself. We use asyncio to manage file writing and communication with the client.
 '''
-@app.websocket("/ws")
+@app.websocket("/ws/watch")
 async def websocket_endpoint(websocket: WebSocket):
-
     await websocket.accept()
 
     global DAILY_SESSIONS
@@ -94,12 +109,8 @@ async def websocket_endpoint(websocket: WebSocket):
     global RECOVER_SESSION
 
 
-
-    print(f"DAILY_SESSIONS = {DAILY_SESSIONS}")
-
     WRITE_MODE = 'w'
-    now = datetime.now()
-    now = now.strftime("%Y_%m_%d")
+    now = datetime.now().strftime("%Y_%m_%d")
     filename = f"data/TRACKING_DATA_{now}_session_{DAILY_SESSIONS}.csv"
 
     if(RECOVER_SESSION == True): WRITE_MODE = 'a' # append when recovering a session
@@ -109,38 +120,66 @@ async def websocket_endpoint(websocket: WebSocket):
                        "recover_timer": RECOVER_TIMER
                        }
 
-    # For our writing logic, we need to make sure that we have connection to the client while writing.
-    # Therefore, we use asyncio tasks and asyncio.wait to concurrently run them, making sure that both our .csv and our frontend have
-    # the same written values. (this fixed a pesky OBOE, so thats good)
-    task_main = asyncio.create_task(write_to_file(websocket, filename, WRITE_MODE, session_context)) # refers to the act of writing a file.
-    task_listener = asyncio.create_task(client_listener(websocket)) # refers to listening for a valid connection with the client.
-
-    # we run both tasks above concurrently. the first task that finishes is sent to the 'done' set, and the other goes to 'pending'.
-    done, pending = await asyncio.wait(
-        [task_main, task_listener],
-        return_when=asyncio.FIRST_COMPLETED
-    )
-
-    # if client lost connection, then cancel writing task. This allows us to enter append mode.
-    # otherwise, we are done with writing, and so stop trying to contact the client (really simple base case tbh)
-    for task in pending:
-        print(f"cancelling task {task}")
-        task.cancel()
-
-    # if we managed to finish listening to the client (AS IN: LOST CONNECTION TO CLIENT, couldnt write everything), then check if we had
-    # a graceful exit. If so, client finished their session successfully and we can increment our parameters.
-    # Otherwise, set the recovery parameters.
-    if task_listener in done:
-        graceful_exit = task_listener.result()
-        # insert recovery session logic here, in case we lose connection. if recovered, continue appending to current session.
-        # if not possible, give 3 - 5 reattempts until definitely not possible to reconnect, and close current exercise session.
-        # obviously warn the user about this
-        # also, the server never disconnects, its always the client. just offshore it to the client lil bro
-        print(f"is graceful exit? {graceful_exit}")
-        if graceful_exit:
+    try:
+        await write_to_file(websocket, filename, WRITE_MODE, session_context)
+    except WebSocketDisconnect as disconnect:
+        if(disconnect.code == 1000):
             DAILY_SESSIONS += 1
             RECOVER_SESSION = False
             RECOVER_TIMER = 0
         else:
             RECOVER_SESSION = True
-            RECOVER_TIMER = session_context["timer"] + 1 # has to be +1 because time 't' was saved right before losing connection, so we go on from t+1
+            RECOVER_TIMER = session_context["timer"] # has to be +1 because time 't' was saved right before losing connection, so we go on from t+1
+            await manager.broadcast(json.dumps({"status": "WATCH_DISCONNECTED"}))
+    finally:
+        await deboog()
+
+async def deboog():
+    global DAILY_SESSIONS
+    print(f"DAILY_SESSIONS = {DAILY_SESSIONS}")
+
+
+
+'''
+This function runs in parallel, checking to see if the client is still connected to our server.
+It returns True only when we have a successful disconnect by the client (i.e., user-driven and not abrupt).
+'''
+@app.websocket("/ws/web")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect as disconnect:
+        print(f"disconnected with code {disconnect.code}")
+    finally:
+        manager.disconnect(websocket)
+
+
+@app.get("/api/recovery")
+async def recover_data(t_0: int):
+    global DAILY_SESSIONS
+
+    now = datetime.now().strftime("%Y_%m_%d")
+    filename = f"data/TRACKING_DATA_{now}_session_{DAILY_SESSIONS}.csv" ## since we increment daily sessions, gotta make sure to do ts
+
+
+    missed_data = []
+
+    try:
+        async with aiofiles.open(filename, mode='r', encoding='utf-8') as file:
+            reader = AsyncDictReader(file)
+
+            async for row in reader:
+                current_time = int(row['TIME'])
+                current_hr = int(row['HEART_RATE'])
+
+                if(current_time > t_0):
+                    missed_data.append({'TIME': current_time, 'HEART_RATE': current_hr})
+
+    except FileNotFoundError:
+        return []
+
+    print(f"for the file {filename}, returned the following:{missed_data}")
+    return missed_data

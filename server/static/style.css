@@ -1,0 +1,60 @@
+body {
+    background-color: #0d0d0d; /* Preto quase absoluto */
+    color: #ffffff;            /* Texto em branco */
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Um contêiner legal para o gráfico não encostar nas bordas */
+.chart-container {
+    width: 90vw;
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #1a1a1a; /* Cinza bem escuro para destacar a área do gráfico */
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.heart-monitor {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+#heart-icon {
+    width: 60px; /* Ajuste conforme o tamanho do seu PNG */
+    height: auto;
+    filter: drop-shadow(0 0 10px rgba(255, 42, 85, 0.6)); /* Brilho neon */
+}
+
+/* Tipografia do número */
+.bpm-display {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+#current-bpm {
+    font-size: 4rem;
+    font-weight: 800;
+    color: #ff2a55;
+    font-variant-numeric: tabular-nums; /* Mantém os números fixos para não tremer a tela */
+}
+
+.bpm-label {
+    font-size: 1.5rem;
+    color: #a0a0a0;
+    font-weight: bold;
+}
+
+/* A física do batimento */
+@keyframes heartbeat {
+    0% { transform: scale(1); }
+    15% { transform: scale(1.25); } /* Primeiro pulso forte */
+    30% { transform: scale(1); }
+    45% { transform: scale(1.15); } /* Segundo pulso fraco */
+    60% { transform: scale(1); }
+    100% { transform: scale(1); }
+}

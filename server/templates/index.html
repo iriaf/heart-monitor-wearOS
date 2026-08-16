@@ -2,19 +2,34 @@
 <html>
 <head>
     <title>Painel de Treino</title>
+    <!-- Importa o motor gráfico do Chart.js direto da nuvem -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <link rel="stylesheet" type="text/css" href="./static/style.css">
+    <link rel="icon" type="image/x-icon" href="./static/favicon.ico">
 </head>
 <body>
 <h1>Monitor Cardíaco</h1>
 
-<!-- Botão simples chamando a função JavaScript no clique -->
-<button id="btnStart" onclick="iniciarTreino()">Começar Sessão</button>
-<button id="btnFinish" onclick="fecharTreino()">Terminar Sessão</button>
-<button id="btnOpen" onclick="openWebSocket()">open websocket</button>
-<button id="btnClose" onclick="closeWebSocket()">close websocket</button>
-<button id="btnAbruptClose" onclick="debugThing()">abruptly close websocket</button>
+<button id="btnOpen"">Abrir WebSocket</button>
+<button id="btnClose"">Fechar WebSocket</button>
+<button id="btnAbruptClose"">Fechar WebSocket (abrupto)</button>
 
-<ul id='messages'></ul>
+<!-- O palco do gráfico -->
+<div class="chart-container">
+    <div class="heart-monitor">
+        <img src="./static/heart.png" id="heart-icon" alt="Heart" />
+        <div class="bpm-display">
+            <span id="current-bpm">--</span>
+            <span class="bpm-label">BPM</span>
+        </div>
+    </div>
+    <canvas id="hrChart"></canvas>
+</div>
 
-<script src="../static/client.js"> </script>
+<!-- Podemos manter a lista escondida ou apagá-la. Eu a removi para ficar limpo. -->
+
+<script type="module" src="./static/main.js"></script>
 </body>
 </html>
