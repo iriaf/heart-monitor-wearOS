@@ -13,4 +13,4 @@
 .externalNativeBuild
 .cxx
 local.properties
-/server/data/*.csv
+/server/data/TRACKING_DATA_*.csv
