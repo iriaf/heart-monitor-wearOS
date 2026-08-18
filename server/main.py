@@ -1,65 +1,20 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates # allows us to get our html/css/js files
+from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-
-import csv
-import json
 
 import asyncio
 import aiofiles
-from aiocsv import AsyncReader, AsyncDictReader, AsyncWriter, AsyncDictWriter
+from aiocsv import AsyncDictReader, AsyncDictWriter
+from csv import QUOTE_NONNUMERIC
 
-import random
+import json
 from datetime import datetime
 
 
-app = FastAPI()
-
-'''
-Visual section of the website
-'''
-templates = Jinja2Templates(directory='templates')
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-'''
-global vars. we'll use these for file writing
-'''
-DAILY_SESSIONS = 0
-RECOVER_SESSION = False
-RECOVER_TIMER = 0
 
 
-
-'''
-Given a .csv file, writes asynchronously to the .csv with the data.
-We use dictionary as a session context, in order to check if we're recovering a lost session (client lost connection) or if
-we are writing without problems.
-#TODO : implement data to be passed as argument (kotlin + health services)
-'''
-async def write_to_file(websocket: WebSocket, filename: str, mode: str, session_context: dict):
-    async with aiofiles.open(filename, mode=mode, encoding='utf-8', newline='') as file:
-
-        writer = AsyncDictWriter(file, ['TIME', 'HEART_RATE'], restval="", quoting=csv.QUOTE_NONNUMERIC) # makes so that time and bpm data are ints instead of strs
-        if(session_context["recover_session"] == False): await writer.writeheader()# write header, just for da first time
-        try:
-            while True:
-                data = await websocket.receive_json() # receive payload via websocket, then write it
-
-                data["TIME"] = session_context["timer"] # backend controls time
-                await writer.writerow(data) # write on disc (file)
-                await file.flush() # clear buffer without blocking other stuff
-
-                await manager.broadcast(json.dumps(data))
-
-                session_context["timer"] += 1
-
-        except asyncio.CancelledError:
-            print("Tarefa foi cancelada")
-        except WebSocketDisconnect:
-            raise
-
-
+# Usamos um connection manager para cuidar das conexões de WebSockets.
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -79,17 +34,51 @@ class ConnectionManager:
             await connection.send_text(message)
 
 manager = ConnectionManager()
+app = FastAPI()
+# Parte visual do website
+templates = Jinja2Templates(directory='templates')
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Variáveis globais utilizadas para a escrita nos arquivos .csv
+DAILY_SESSIONS = 0
+RECOVER_SESSION = False
+RECOVER_TIMER = 0
+
 
 
 '''
-Loads main endpoint. For now, its a basic page, just for testing.
+Dado um arquivo .csv, escreve de forma assíncrona para o arquivo com os dados recebidos através do WebSocket.
+Usamos um dicionário para obter o contexto da sessão, verificando se estamos recuperando-na (relógio perdeu conexão).
+'''
+async def write_to_file(websocket: WebSocket, filename: str, mode: str, session_context: dict):
+    async with aiofiles.open(filename, mode=mode, encoding='utf-8', newline='') as file:
+        writer = AsyncDictWriter(file, ['TIME', 'HEART_RATE'], restval="", quoting=QUOTE_NONNUMERIC) # Pegamos tempo e bpm como INTs
+
+        if(session_context["recover_session"] == False): await writer.writeheader() # Escreva o header, se ele não existir
+        try:
+            while True:
+                data = await websocket.receive_json()
+                data["TIME"] = session_context["timer"] # Backend controla o tempo!
+                await writer.writerow(data)
+                await file.flush()
+                await manager.broadcast(json.dumps(data))
+                session_context["timer"] += 1
+
+        except asyncio.CancelledError:
+            print("Tarefa foi cancelada")
+        except WebSocketDisconnect:
+            raise
+
+
+'''
+Endpoint principal.
 '''
 @app.get("/", response_class=HTMLResponse)
 async def get(request: Request):
     return templates.TemplateResponse(request=request, name='index.html')
 
 '''
-#TODO : implement csv analysis logic here
+TODO: Implementar lógica de análise de arquivos (estatística descritiva básica)
 '''
 @app.get("/sessions")
 async def get():
@@ -98,7 +87,8 @@ async def get():
 
 
 '''
-Implementation of the websocket itself. We use asyncio to manage file writing and communication with the client.
+WebSocket entre o relógio e o servidor.
+Não é necessário usar o manager aqui, pois apenas um relógio pode se ligar ao WebSocket de Relógio.
 '''
 @app.websocket("/ws/watch")
 async def websocket_endpoint(websocket: WebSocket):
@@ -129,7 +119,7 @@ async def websocket_endpoint(websocket: WebSocket):
             RECOVER_TIMER = 0
         else:
             RECOVER_SESSION = True
-            RECOVER_TIMER = session_context["timer"] # has to be +1 because time 't' was saved right before losing connection, so we go on from t+1
+            RECOVER_TIMER = session_context["timer"]
             await manager.broadcast(json.dumps({"status": "WATCH_DISCONNECTED"}))
     finally:
         await deboog()
@@ -141,8 +131,8 @@ async def deboog():
 
 
 '''
-This function runs in parallel, checking to see if the client is still connected to our server.
-It returns True only when we have a successful disconnect by the client (i.e., user-driven and not abrupt).
+WebSocket entre o servidor e o cliente (website). 
+Verificamos se o website ainda está conectado ao nosso servidor.
 '''
 @app.websocket("/ws/web")
 async def websocket_endpoint(websocket: WebSocket):
@@ -152,18 +142,19 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
 
     except WebSocketDisconnect as disconnect:
-        print(f"disconnected with code {disconnect.code}")
+        print(f"Disconnected with code {disconnect.code}")
     finally:
         manager.disconnect(websocket)
 
-
-@app.get("/api/recovery")
-async def recover_data(t_0: int):
+'''
+Se o website perder a conexão do WebSocket não-intencionalmente, ele irá fazer um fetch neste endpoint aqui.
+O arquivo .csv do treino é lido e os dados 'perdidos' são retornados.
+'''
+@app.get("/recovery")
+async def recover_data(recover_from_time: int):
     global DAILY_SESSIONS
-
     now = datetime.now().strftime("%Y_%m_%d")
-    filename = f"data/TRACKING_DATA_{now}_session_{DAILY_SESSIONS}.csv" ## since we increment daily sessions, gotta make sure to do ts
-
+    filename = f"data/TRACKING_DATA_{now}_session_{DAILY_SESSIONS}.csv"
 
     missed_data = []
 
@@ -174,12 +165,11 @@ async def recover_data(t_0: int):
             async for row in reader:
                 current_time = int(row['TIME'])
                 current_hr = int(row['HEART_RATE'])
-
-                if(current_time > t_0):
+                if(current_time > recover_from_time):
                     missed_data.append({'TIME': current_time, 'HEART_RATE': current_hr})
 
-    except FileNotFoundError:
+    except:
         return []
 
-    print(f"for the file {filename}, returned the following:{missed_data}")
+    print(f"For the file {filename}, returned the following:{missed_data}")
     return missed_data

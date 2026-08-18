@@ -1,16 +1,9 @@
-/* While this template provides a good starting point for using Wear Compose, you can always
- * take a look at https://github.com/android/wear-os-samples/tree/main/ComposeStarter to find the
- * most up to date changes to the libraries and their usages.
- */
-
 package com.example.myapplication.presentation
-
 
 import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -46,12 +39,11 @@ import androidx.compose.ui.draw.scale
 import androidx.wear.compose.material3.ButtonDefaults
 
 
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
             WearApp(
@@ -82,25 +74,14 @@ fun WearApp(
     onStartClick: () -> Unit,
     onFinishClick: () -> Unit
 ) {
-    val context  = LocalContext.current
+    val context = LocalContext.current
 
-    /*
-    var isTrainingMode by remember { mutableStateOf(false) }
-
-    val powerManager = context.getSystemService(PowerManager::class.java)
-    if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-            data = "package:${context.packageName}".toUri()
-        }
-        // Dispara a tela nativa pedindo a isenção de economia de bateria
-        context.startActivity(intent)
-    }
-    */
     val permissionsToRequest = mutableListOf(
         Manifest.permission.BODY_SENSORS,
         Manifest.permission.ACTIVITY_RECOGNITION
     )
 
+    // SDK_INT >= 33 requires permission from the user to send notifications.
     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
     {
         permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
@@ -125,35 +106,10 @@ fun WearApp(
 
     MyApplicationTheme {
         AppScaffold {
-            /*
-            if(isTrainingMode)
-            {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black)
-                        .clickable {
-                            // Permite voltar ao menu normal tocando na tela escura
-                            isTrainingMode = false
-                            onFinishClick()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Texto sutil e escuro para não queimar o painel (Burn-in) nem gastar bateria
-                    Text(
-                        text = "Telemetria Ativa\n(Toque para parar)",
-                        color = Color.DarkGray
-                    )
-                }
-            }
-            else
-            {
-
-             */
-                val listState = rememberTransformingLazyColumnState()
-                val transformationSpec = rememberTransformationSpec()
-                ScreenScaffold(
-                    scrollState = listState,
+            val listState = rememberTransformingLazyColumnState()
+            val transformationSpec = rememberTransformationSpec()
+            ScreenScaffold(
+                scrollState = listState,
                 ) { contentPadding ->
                     TransformingLazyColumn(contentPadding = contentPadding, state = listState) {
                         item {
@@ -209,16 +165,11 @@ fun WearApp(
                                     .transformedHeight(this, transformationSpec),
                                 transformation = SurfaceTransformation(transformationSpec),
                             ) {
-                                Text("Desconectar (Stop)")
-                            }
-                        }
-                    }
-                }
+                                Text("Desconectar (Stop)") } } }
             }
-
         }
     }
-//}
+}
 
 @WearPreviewDevices
 @WearPreviewFontScales

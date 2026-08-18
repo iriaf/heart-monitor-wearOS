@@ -32,36 +32,46 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import java.util.concurrent.TimeUnit
 import android.os.Vibrator
 import android.os.VibrationEffect
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
+import com.example.myapplication.R
 
-const val DEBUG_MODE = true // change to false when in prod
+const val DEBUG_MODE = true // Mudar para false em prod
 
+// Defining constant values
 const val SOCKET_CONNECTING = 0
 const val SOCKET_OPEN = 1
+
 const val SOCKET_CLOSING = 2
 const val SOCKET_CLOSED = 3
 
+const val MAX_ATTEMPTS = 5 // Máximo de tentativas de reconexão
+const val BATCH_SIZE = 10 // Tamanho dos lotes de dados a serem enviados via o WebSocket
+
 class HeartRateService : Service() {
     private val client = OkHttpClient.Builder()
-        .pingInterval(3, TimeUnit.SECONDS)
         .build()
     private var ws: WebSocket? = null
 
     private val TAG = "HeartRateSystem"
+
+    // This should be your desktop's IPV4 on the local network, on the desired port.
     private val URL = "ws://192.168.15.50:8000/ws/watch"
 
+
+    // Variables used for the recovery of the connection.
     private var internalTimer: Int = 0
     private var attempts: Int = 0
-    private val MAX_ATTEMPTS: Int = 5
 
-    private var SOCKET_STATUS: Int = 3
+    private var SOCKET_STATUS: Int = SOCKET_CLOSED
 
     //private var wakeLock: PowerManager.WakeLock? = null
     //private var wifiLock: WifiManager.WifiLock? = null
     private val dataBatch = mutableListOf<String>()
-    private val BATCH_SIZE = 10
+
 
     private lateinit var connectivityManager: ConnectivityManager
     private lateinit var networkCallback: ConnectivityManager.NetworkCallback
@@ -75,17 +85,10 @@ class HeartRateService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "Begun system - Bare-Metal Sensor Mode")
-    /*
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "HeartRateService::WakeLock")
-        wakeLock?.acquire()
+        Log.d(TAG, "Begun system")
 
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "HeartRateService::WifiLock")
-        wifiLock?.acquire()
-    */
-        if (Build.VERSION.SDK_INT >= 34) {
+        // SDK_INT >= 34 requires us to declare the foregroundServiceType.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(1, createNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH)
         } else {
             startForeground(1, createNotification())
@@ -100,12 +103,12 @@ class HeartRateService : Service() {
 
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                Log.d(TAG, "Wi-Fi available. Using wi-fi to send data packets.")
+                Log.d(TAG, "Wi-Fi available, using it to send data...")
                 connectivityManager.bindProcessToNetwork(network)
             }
 
             override fun onLost(network: Network) {
-                Log.d(TAG, "Wi-Fi connection lost! Cancelling dead socket.")
+                Log.w(TAG, "Wi-Fi connection lost, cancelling dead socket")
                 connectivityManager.bindProcessToNetwork(null)
                 ws?.cancel()
             }
@@ -114,15 +117,12 @@ class HeartRateService : Service() {
         connectivityManager.requestNetwork(networkRequest, networkCallback)
 
         connectServer()
-        startSensorClient()
 
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        //wakeLock?.release()
-        //wifiLock?.release()
         connectivityManager.unregisterNetworkCallback(networkCallback)
         Log.d(TAG, "System destroyed")
         stopSensorClient()
@@ -130,8 +130,8 @@ class HeartRateService : Service() {
     }
 
     private fun connectServer() {
-        if (ws != null) {
-            Log.d(TAG, "Already connected to websocket!")
+        if (ws != null && (SOCKET_STATUS == SOCKET_CONNECTING || SOCKET_STATUS == SOCKET_OPEN)) {
+            Log.d(TAG, "Watch WebSocket already exists AND is connecting / connected")
             return
         }
 
@@ -139,48 +139,75 @@ class HeartRateService : Service() {
         val request = Request.Builder().url(URL).build()
 
         val listener = object : WebSocketListener() {
+
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                SOCKET_STATUS = SOCKET_OPEN
                 Log.d(TAG, "Websocket opened successfully")
+                showToast("Conexão estabelecida")
+                startSensorClient()
+
+            }
+
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                SOCKET_STATUS = SOCKET_CLOSING
+                Log.d(TAG, "Websocket is closing")
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                SOCKET_STATUS = SOCKET_CLOSED
                 Log.d(TAG, "Websocket closed with code $code and reason $reason")
-                if (code != 1000) {
+                stopSensorClient()
+                dataBatch.clear()
+                if(code != 1000) {
                     ws = null
                     reattemptConnection()
+                }
+                else
+                {
+                    showToast("Desconectado do servidor")
                 }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                SOCKET_STATUS = SOCKET_CLOSED
                 Log.d(TAG, "Websocket failed to connect: ${t.message}")
+                stopSensorClient()
+                dataBatch.clear()
                 ws = null
                 reattemptConnection()
             }
         }
 
         ws = client.newWebSocket(request, listener)
-        SOCKET_STATUS = SOCKET_OPEN
+
     }
 
     private fun disconnectServer() {
-        SOCKET_STATUS = SOCKET_CLOSING
+        if (ws == null || SOCKET_STATUS == SOCKET_CLOSING || SOCKET_STATUS == SOCKET_CLOSED)
+        {
+            Log.w(TAG, "Watch WebSocket doesn't exist OR is closing / closed")
+            return
+        }
         ws?.close(1000, "Graceful disconnect")
         ws = null
-        SOCKET_STATUS = SOCKET_CLOSED
     }
 
     private fun reattemptConnection() {
         attempts++
         if (attempts > MAX_ATTEMPTS) {
             Log.d(TAG, "Amount of attempts $attempts surpassed maximum of $MAX_ATTEMPTS")
+            showToast("Não foi possível conectar ao servidor")
             return
         }
-        Log.d(TAG, "lost connection! reattempting connection...")
+        Log.d(TAG, "lost connection! reattempting connection... (on attempt ${attempts})")
 
         CoroutineScope(Dispatchers.IO).launch {
-            delay((if (attempts >= 4) 1000L * (1 shl 5) else 1000L * (1 shl attempts)).milliseconds)
+            delay((if (attempts >= 4) 1000*(1 shl 5) else 1000*(1 shl attempts)).milliseconds)
             connectServer()
-            Log.d(TAG, "Managed to reconnect within $attempts attempts")
+            if(SOCKET_STATUS == SOCKET_OPEN)
+            {
+                Log.d(TAG, "Managed to reconnect within $attempts attempts")
+            }
         }
     }
 
@@ -208,8 +235,15 @@ class HeartRateService : Service() {
 
     private fun stopSensorClient()
     {
-        sensorManager.unregisterListener(sensorListener)
-        Log.d(TAG, "Sensor listener desregistrado.")
+        if(::sensorManager.isInitialized)
+        {
+            sensorManager.unregisterListener(sensorListener)
+            Log.d(TAG, "Unregistered sensorListener")
+        }
+        else
+        {
+            Log.w(TAG, "No registering done: sensorManager was not initialized. Verify that there's an active WebSocket connection.")
+        }
     }
 
 
@@ -271,6 +305,12 @@ class HeartRateService : Service() {
 
     // -----------------------------------------
 
+    private fun showToast(message: String) {
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun createNotification(): Notification {
         val channelId = "heart_rate_channel"
         val channel = NotificationChannel(channelId, "Monitoring", NotificationManager.IMPORTANCE_LOW)
@@ -285,7 +325,7 @@ class HeartRateService : Service() {
         val builder = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Heart Monitoring")
             .setContentText("Tracking & sending data via websockets...")
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_heart_notification)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
 
@@ -294,7 +334,7 @@ class HeartRateService : Service() {
             1,
             builder
         )
-            .setStaticIcon(android.R.drawable.ic_menu_mylocation)
+            .setStaticIcon(R.drawable.ic_heart_notification)
             .setTouchIntent(pendingIntent)
             .build()
 

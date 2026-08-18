@@ -1,22 +1,23 @@
+const SOCKET_CONNECTING = 0
+const SOCKET_OPEN = 1
+const SOCKET_CLOSING = 2
+const SOCKET_CLOSED = 3
+
+const MAX_ATTEMPTS = 5
+
 export class TelemetryClient {
     constructor(url, onRenderCallback) {
         this.url = url;
         this.onRenderCallback = onRenderCallback; // Callback para injetar no gráfico
         
         // Constantes e Estados
-        this.MAX_ATTEMPTS = 5;
         this.attempts = 0;
         this.ws = null;
-
-        this.SOCKET_CONNECTING = 0
-        this.SOCKET_OPEN = 1
-        this.SOCKET_CLOSING = 2
-        this.SOCKET_CLOSED = 3
 
         this.SOCKET_STATUS = this.SOCKET_CLOSED;
         
         // Lógica de Recuperação e Fila
-        this.t_0 = -1;
+        this.recover_from_time = -1;
         this.recoveryMode = false;
         this.messageBuffer = []; // Buffer do backend (durante o recovery)
         
@@ -29,37 +30,45 @@ export class TelemetryClient {
 
     openWebSocket()
     {
-        if (this.ws) return;
-        this.SOCKET_STATUS = 0; // CONNECTING
+        if (this.ws && (this.SOCKET_STATUS === SOCKET_CONNECTING || this.SOCKET_STATUS === SOCKET_OPEN))
+        {
+            console.warn("Website WebSocket already exists AND is connecting / connected");
+            return;
+        }
+        this.SOCKET_STATUS = SOCKET_CONNECTING; // CONNECTING
 
         this.ws = new WebSocket(this.url);
         console.log(`Opened websocket to ${this.url}`);
 
         this.ws.addEventListener("open", () => {
-            this.SOCKET_STATUS = 1; // OPEN
+            this.SOCKET_STATUS = SOCKET_OPEN; // OPEN
             this.attempts = 0;
 
-            if (this.t_0 > -1) {
-                console.log(`found data that needs to be recovered from time t_0 = ${this.t_0}`);
+            if (this.recover_from_time > -1) {
+                console.log(`Found data that needs to be recovered from time t = ${this.recover_from_time + 1}`);
                 this.recoveryMode = true;
-                this.recoverLostData(this.t_0);
+                this.recoverLostData(this.recover_from_time);
             }
+        });
+
+        this.ws.addEventListener("error", (event) =>
+        {
+            console.log(`WebSocket error: ${event.error}`)
         });
 
         this.ws.addEventListener("close", (event) =>
         {
-            if(event.data && JSON.parse(event.data) === "WATCH_DISCONNECTED")
-            {
-                console.log('lost connection to watch');
-            }
+            this.SOCKET_STATUS = this.SOCKET_CLOSED;
 
             if(event.code === 1000)
             {
                 console.log(`closed gracefully with code ${event.code} and reason ${event.reason}`);
+                this.recover_from_time = -1;
+                this.recoveryMode = false;
             }
             else
             {
-                console.log(`closed abruptly with code ${event.code} and reason ${event.reason}`);
+                console.warn(`closed abruptly with code ${event.code} and reason ${event.reason}`);
                 console.log(`Reattempting connection...`);
                 this.reattemptConnection();
             }
@@ -70,9 +79,9 @@ export class TelemetryClient {
         {
             const data = JSON.parse(event.data);
 
-            if(data.status)
+            if(data.status === "WATCH_DISCONNECTED")
             {
-                if (data.status === "WATCH_DISCONNECTED") console.warn("Watch lost connection to server!");
+                console.warn("Watch lost connection to server!");
                 return;
             }
             
@@ -89,13 +98,17 @@ export class TelemetryClient {
 
     closeWebSocket()
     {
-        if (!this.ws) return;
+        if (!this.ws || this.SOCKET_STATUS === SOCKET_CLOSING || this.SOCKET_STATUS === SOCKET_CLOSED)
+        {
+            console.warn("Website WebSocket doesn't exist OR is closing / closed");
+            return;
+        }
         this.SOCKET_STATUS = this.SOCKET_CLOSING;
         this.ws.close(1000, "Normal closure");
         this.SOCKET_STATUS = this.SOCKET_CLOSED;
         console.log(`WebSocket connection closed`);
 
-        this.t_0 = -1;
+        this.recover_from_time = -1;
         this.recoveryMode = false;
         this.messageBuffer = [];
         this.displayQueue = []; // Zera a fila
@@ -111,7 +124,7 @@ export class TelemetryClient {
 
         this.recoveryMode = true;
         this.messageBuffer = [];
-        this.displayQueue = []; // Zera a fila
+        this.displayQueue = [];
         this.ws = null;
     }
 
@@ -129,7 +142,7 @@ export class TelemetryClient {
         setTimeout(() =>
         {
             this.openWebSocket();
-            console.log(`managed to reconnect within ${this.attempts} attempts`);
+            console.log(`Managed to reconnect within ${this.attempts} attempts`);
         }, this.attempts >= 4 ? 1000 * (2 ** 5) : 1000 * (2 ** this.attempts));
     }
 
@@ -137,16 +150,16 @@ export class TelemetryClient {
     {
         try
         {
-            const response = await fetch(`/api/recovery?t_0=${lastTime}`);
+            const response = await fetch(`/recovery?recover_from_time=${lastTime}`);
             if(!response.ok) throw new Error(`HTTP Error: ${response.status}`);
 
             const missed_data = await response.json();
-            console.log(`recovered ${missed_data.length} points of data`);
+            console.log(`Recovered ${missed_data.length} points of data`);
 
             // Dados recuperados são renderizados IMEDIATAMENTE para "alcançar" o tempo real
             missed_data.forEach(data =>
             {
-                this.t_0 = data.TIME;
+                this.recover_from_time = data.TIME;
                 this.onRenderCallback(data.TIME, data.HEART_RATE, true);
             });
 
@@ -159,7 +172,7 @@ export class TelemetryClient {
 
         catch (error)
         {
-            console.error(`failed to recover data: ${error}`);
+            console.error(`Failed to recover data: ${error}`);
             this.recoveryMode = false;
         }
     }
@@ -172,7 +185,7 @@ export class TelemetryClient {
             if(this.displayQueue.length > 0)
             {
                 const data = this.displayQueue.shift();
-                this.t_0 = data.TIME; // Atualiza a variável de estado de tempo
+                this.recover_from_time = data.TIME; // Atualiza a variável de estado de tempo
                 this.onRenderCallback(data.TIME, data.HEART_RATE, false);
             }
         }, 1000); // 1 tick = 1 segundo

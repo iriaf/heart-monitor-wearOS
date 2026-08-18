@@ -16,11 +16,14 @@ document.getElementById('btnOpen').addEventListener('click', () => {
 
 document.getElementById('btnClose').addEventListener('click', () => {
     telemetry.closeWebSocket();
-    renderer.clear();
 });
 
 document.getElementById('btnAbruptClose').addEventListener('click', () => {
     telemetry.debugThing();
+});
+
+document.getElementById('btnClearGraph').addEventListener('click', () => {
+    renderer.clear();
 });
 
 // 3. Expõe os comandos para os seus botões HTML
@@ -30,9 +33,12 @@ window.openWebSocket = () => {
 
 window.closeWebSocket = () => {
     telemetry.closeWebSocket();
-    renderer.clear(); // Limpa o gráfico ao fechar
 };
 
 window.debugThing = () => {
     telemetry.debugThing();
 };
+
+window.clearGraph = () => {
+    renderer.clear();
+}
