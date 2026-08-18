@@ -13,4 +13,5 @@
 .externalNativeBuild
 .cxx
 local.properties
-/server/data/TRACKING_DATA_*.csv
+/server/data/*
+!/server/data/.gitkeep
