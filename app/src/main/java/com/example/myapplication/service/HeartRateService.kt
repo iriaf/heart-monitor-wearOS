@@ -53,7 +53,7 @@ const val MAX_ATTEMPTS = 5 //
 const val BATCH_SIZE = 10 // Amount of data points to be sent via the WebSocket
 
 // This should be your desktop's IPV4 on the local network, on the desired port.
-const val URL = "ws://192.168.15.50:8000/ws/watch"
+const val URL = "ws://IPV4:PORT/ws/watch"
 
 class HeartRateService : Service() {
     private val client = OkHttpClient.Builder().build()
