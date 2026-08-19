@@ -4,17 +4,13 @@
     <uses-feature android:name="android.hardware.type.watch" />
 
     <uses-permission android:name="android.permission.BODY_SENSORS" />
-    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- TODO: If you're gonna change the SDK_INT to >= 36, include the following: android.permission.health.READ_HEART_RATE -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Essential to keep service running in background -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
-
-    <!-- debugging-->
-    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" /> <!-- Debugging-->
 
     <attribution
         android:label="@string/heart_rate_monitor"
@@ -56,6 +52,8 @@
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/tile_preview" />
         </service>
+
+        <!-- Android 14+ requires foreground services types declaration and justification, so we do it here -->
         <service
             android:name=".service.HeartRateService"
             android:exported="false"

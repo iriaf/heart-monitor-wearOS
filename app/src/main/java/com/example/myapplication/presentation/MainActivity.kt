@@ -21,14 +21,11 @@ import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ListHeader
-import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.lazy.rememberTransformationSpec
 import androidx.wear.compose.material3.lazy.transformedHeight
-import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
-import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
 import com.example.myapplication.presentation.theme.MyApplicationTheme
 import com.example.myapplication.service.HeartRateService
 import androidx.compose.animation.animateColorAsState
@@ -40,9 +37,10 @@ import androidx.wear.compose.material3.ButtonDefaults
 
 
 
-class MainActivity : ComponentActivity() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
+class MainActivity : ComponentActivity()
+{
+    override fun onCreate(savedInstanceState: Bundle?)
+    {
         super.onCreate(savedInstanceState)
 
         setContent {
@@ -55,10 +53,9 @@ class MainActivity : ComponentActivity() {
 
     private fun startHeartRateService()
     {
-        val intent =
-            Intent(this, HeartRateService::class.java) // we tell the kernel to manage ts for us
+        val intent = Intent(this, HeartRateService::class.java) // we tell the kernel to manage ts for us
         startForegroundService(intent)
-        // this is very different from the direct memory / kernel manip im used to ngl
+        // this is very different from the direct memory manip im used to ngl
     }
 
     private fun stopHeartRateService()
@@ -76,12 +73,12 @@ fun WearApp(
 ) {
     val context = LocalContext.current
 
+    // Per Android policy, we are required to ask permission to access body sensor data.
     val permissionsToRequest = mutableListOf(
-        Manifest.permission.BODY_SENSORS,
-        Manifest.permission.ACTIVITY_RECOGNITION
+        Manifest.permission.BODY_SENSORS
     )
 
-    // SDK_INT >= 33 requires permission from the user to send notifications.
+    // SDK_INT >= 33 requires us to get permission to send notifications.
     if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
     {
         permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
@@ -90,13 +87,11 @@ fun WearApp(
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-
         val allGranted = permissions.values.all { it }
 
         if(allGranted)
         {
             onStartClick()
-            //isTrainingMode = true
         }
         else
         {
@@ -104,6 +99,7 @@ fun WearApp(
         }
     }
 
+    // Defining the app's interface
     MyApplicationTheme {
         AppScaffold {
             val listState = rememberTransformingLazyColumnState()
@@ -121,15 +117,12 @@ fun WearApp(
                             }
                         }
                         item {
-                            // Botão A modificado
-
                             val interactionSource = remember { MutableInteractionSource() }
                             val isPressed by interactionSource.collectIsPressedAsState()
 
-                            // Encolhe para 90% do tamanho se estiver pressionado
-                            val scale by animateFloatAsState(targetValue = if (isPressed) 0.9f else 1f, label = "scale")
-                            // Fica cinza escuro ao toque, retorna à cor primária ao soltar
-                            val bgColor by animateColorAsState(targetValue = if (isPressed) Color.DarkGray else MaterialTheme.colorScheme.primary, label = "color")
+                            // Change color and scale if button is held
+                            val scale by animateFloatAsState(targetValue = if (isPressed) 0.85f else 1.0f, label = "scale")
+                            val bgColor by animateColorAsState(targetValue = if (isPressed) Color(127, 255, 92) else Color(48, 224, 0), label = "color")
 
                             Button(
                                 onClick = {
@@ -139,21 +132,20 @@ fun WearApp(
                                 colors = ButtonDefaults.buttonColors(containerColor = bgColor),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .scale(scale) // Aplica a animação de tamanho
+                                    .scale(scale)
                                     .transformedHeight(this, transformationSpec),
                                 transformation = SurfaceTransformation(transformationSpec),
                             ) {
-                                Text("Conectar (Start)")
+                                Text("Iniciar")
                             }
                         }
                         item {
-                            // Botão B modificado
-                            // Motores de Interação para o Botão "STOP"
                             val interactionSource = remember { MutableInteractionSource() }
                             val isPressed by interactionSource.collectIsPressedAsState()
 
-                            val scale by animateFloatAsState(targetValue = if (isPressed) 0.9f else 1f, label = "scale")
-                            val bgColor by animateColorAsState(targetValue = if (isPressed) Color.DarkGray else MaterialTheme.colorScheme.onSurfaceVariant, label = "color")
+                            // Change color and scale if button is held
+                            val scale by animateFloatAsState(targetValue = if (isPressed) 0.85f else 1.0f, label = "scale")
+                            val bgColor by animateColorAsState(targetValue = if (isPressed) Color(254, 139, 139) else Color(252, 68, 68), label = "color")
 
                             Button(
                                 onClick = onFinishClick,
@@ -165,12 +157,16 @@ fun WearApp(
                                     .transformedHeight(this, transformationSpec),
                                 transformation = SurfaceTransformation(transformationSpec),
                             ) {
-                                Text("Desconectar (Stop)") } } }
+                                Text("Finalizar") } } }
             }
         }
     }
 }
 
+// Make sure to import the following in order to verify previews:
+// import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
+// import androidx.wear.compose.ui.tooling.preview.WearPreviewFontScales
+/*
 @WearPreviewDevices
 @WearPreviewFontScales
 @Composable
@@ -180,3 +176,4 @@ fun DefaultPreview() {
         onFinishClick = {}
     )
 }
+*/
