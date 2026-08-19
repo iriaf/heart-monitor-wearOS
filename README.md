@@ -67,6 +67,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 2. Build & Run the Wear OS App (Frontend)
 The recommended approach is to open the app/ module in Android Studio and run it directly on a physical Wear OS device or emulator.
 
+In the file `app/src/main/java/com/example/myapplication/service/HeartRateService.kt`, make sure to 
+configure the URL for the WebSocket access, otherwise your watch/emulator will not be able to connect to the server.
+
+
 Alternatively, you can use the Gradle wrapper from the repository root.
 
 Build the debug APK:
@@ -102,14 +106,14 @@ Debugging: Enable logging on both sides to track connection states. Use Android 
 
 Flaky Connections: If the app claims to be "connected" but data is not flowing, ensure explicit timeouts and connection checks are properly handled before relying on the server-side state.
 
-## Known TODOs
--  Update and synchronize timestamp (ts) logic between client and server.
-
--  Clean up codebase commentary and remove unused import directives.
-
--  Investigate false-positive connection states (app claims to be connected upon launch without proper handshake).
-
--  Implement stricter safeguards and bounds for haptic feedback (vibration) triggers to prevent continuous looping.
+## TODOs
+- Properly implement debug mode.
+- Improve the feel of zooming in and out of the graph.
+- Revamp visuals (both website and watch app).
+- Implement basic statistical analysis of data.
+- Modularize watch-related code.
+- Remove unnecessary images (mipmaps and playstore image).
+- Improve this README (eternally in maintenance :)).
 
 ## Contributing
 Please open issues for specific TODO items and bugs.
