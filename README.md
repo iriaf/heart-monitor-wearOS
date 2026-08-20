@@ -1,7 +1,7 @@
 # Heart Monitor (Wear OS + Server)
 
 ## Overview
-A Wear OS application paired with a FastAPI backend for prototyping heart-monitoring behavior and device-server interactions. The Kotlin app runs on a Wear OS device (or emulator) to collect hardware sensor data, while the Python server provides local HTTP/WebSocket endpoints to process the telemetry during development.
+A Wear OS application paired with a FastAPI backend for prototyping heart-monitoring behavior and device-server interactions. The Kotlin app runs on a Wear OS device (or emulator) to collect hardware sensor data, while the Python server provides local HTTP/WebSocket endpoints to process the telemetry during development. Every training session is locally saved with on a .csv file.
 
 ## Tech Stack
 * **Client (Wear OS):** Kotlin, Android Jetpack, Wear OS UI libraries
