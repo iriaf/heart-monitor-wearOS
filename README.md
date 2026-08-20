@@ -24,7 +24,7 @@ A Wear OS application paired with a FastAPI backend for prototyping heart-monito
 ## How to Run
 Clone the repository and follow the instructions below to start the backend server and the Wear OS client.
 
-1. Run the FastAPI Server (Backend)
+### 1. Run the FastAPI Server (Backend)
 Navigate to the server directory from the repository root:
 
 ```bash
@@ -64,7 +64,7 @@ The server will listen on port 8000 by default. The --reload flag enables hot-re
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-2. Build & Run the Wear OS App (Frontend)
+### 2. Build & Run the Wear OS App (Frontend)
 The recommended approach is to open the app/ module in Android Studio and run it directly on a physical Wear OS device or emulator.
 
 In the file `app/src/main/java/com/example/myapplication/service/HeartRateService.kt`, make sure to 
