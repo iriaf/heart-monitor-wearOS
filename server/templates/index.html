@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <title>Monitor Cardíaco</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <link rel="stylesheet" type="text/css" href="../static/style.css">
+    <link rel="icon" type="image/x-icon" href="../static/favicon.ico">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/sugina-dev/latin-modern-web@1.0.1/style/latinmodern-roman.css">
+    <!-- TODO: Improve font logic (make everything LaTeX?) -->
+</head>
+<body>
+<h1>Monitor Cardíaco</h1>
+
+<button id="btnOpen">Abrir WebSocket</button>
+<button id="btnClose">Fechar WebSocket</button>
+<button id="btnAbruptClose">Fechar WebSocket (abrupto)</button>  <!-- TODO: Remove ts -->
+<button id="btnClearGraph">Limpar Gráfico</button>
+
+
+<div class="chart-container">
+    <div class="heart-monitor">
+        <img src="../static/heart.png" id="heart-icon" alt="Heart" />
+        <div class="bpm-display">
+            <span id="current-bpm">--</span>
+            <span class="bpm-label">BPM</span>
+        </div>
+    </div>
+    <canvas id="hrChart"></canvas>
+</div>
+
+
+<script type="module" src="../static/main.js"></script>
+</body>
+</html>

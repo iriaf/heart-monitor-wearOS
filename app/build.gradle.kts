@@ -1,21 +1,20 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    id("kotlin-parcelize")
 }
 
 android {
     namespace = "com.example.myapplication"
-    compileSdk {
-        version = release(37)
-    }
+    // Sintaxe limpa e padrão
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.example.myapplication"
         minSdk = 30
-        targetSdk = 37
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
     }
 
     buildTypes {
@@ -29,7 +28,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    useLibrary("wear-sdk")
+
+    // REMOVIDO: useLibrary("wear-sdk") - Isso não existe no SDK 33
+
     buildFeatures {
         compose = true
     }
@@ -59,4 +60,7 @@ dependencies {
     debugImplementation(libs.tiles.tooling)
     debugImplementation(libs.ui.test.manifest)
     debugImplementation(libs.ui.tooling)
+    implementation("androidx.health:health-services-client:1.1.0-rc02")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("androidx.wear:wear-ongoing:1.1.0")
 }
