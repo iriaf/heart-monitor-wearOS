@@ -12,9 +12,7 @@ import json
 from datetime import datetime
 
 
-
-
-# Usamos um connection manager para cuidar das conexões de WebSockets.
+# We use a connection manager to take care of client (website) WebSocket connections.
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -35,11 +33,12 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 app = FastAPI()
-# Parte visual do website
+
+# Visual section of the website
 templates = Jinja2Templates(directory='templates')
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Variáveis globais utilizadas para a escrita nos arquivos .csv
+# Global vars used to handle file writing
 DAILY_SESSIONS = 0
 RECOVER_SESSION = False
 RECOVER_TIMER = 0
@@ -47,8 +46,8 @@ RECOVER_TIMER = 0
 
 
 '''
-Dado um arquivo .csv, escreve de forma assíncrona para o arquivo com os dados recebidos através do WebSocket.
-Usamos um dicionário para obter o contexto da sessão, verificando se estamos recuperando-na (relógio perdeu conexão).
+Given a .csv file, writes asynchronously to the file with the data received from the watch Websocket.
+We use a dictionary to obtain the session's context, verifying if we're in recovery mode (watch lost connection).
 '''
 async def write_to_file(websocket: WebSocket, filename: str, mode: str, session_context: dict):
     async with aiofiles.open(filename, mode=mode, encoding='utf-8', newline='') as file:
@@ -69,26 +68,21 @@ async def write_to_file(websocket: WebSocket, filename: str, mode: str, session_
         except WebSocketDisconnect:
             raise
 
-
-'''
-Endpoint principal.
-'''
+# Main endpoint
 @app.get("/", response_class=HTMLResponse)
 async def get(request: Request):
     return templates.TemplateResponse(request=request, name='index.html')
 
-'''
-TODO: Implementar lógica de análise de arquivos (estatística descritiva básica)
-'''
+# TODO: Implement basic order statistics analysis
 @app.get("/sessions")
 async def get():
     return {"my message?": "nothing yet :)"}
-    # csv manipulation logic here: save to disk, load from disk, analyze data, etc
+    # .csv manipulation logic here: save to disk, load from disk, analyze data, etc
 
 
 '''
-WebSocket entre o relógio e o servidor.
-Não é necessário usar o manager aqui, pois apenas um relógio pode se ligar ao WebSocket de Relógio.
+WebSocket between the watch and the server.
+No need to use the connectionmanager here, because only a single watch can connect to this WebSocket.
 '''
 @app.websocket("/ws/watch")
 async def websocket_endpoint(websocket: WebSocket):
@@ -103,7 +97,7 @@ async def websocket_endpoint(websocket: WebSocket):
     now = datetime.now().strftime("%Y_%m_%d")
     filename = f"data/TRACKING_DATA_{now}_session_{DAILY_SESSIONS}.csv"
 
-    if(RECOVER_SESSION == True): WRITE_MODE = 'a' # append when recovering a session
+    if(RECOVER_SESSION == True): WRITE_MODE = 'a' # Append when recovering a session
 
     session_context = {"timer": RECOVER_TIMER if RECOVER_SESSION else 0,
                        "recover_session": RECOVER_SESSION,
@@ -131,8 +125,9 @@ async def deboog():
 
 
 '''
-WebSocket entre o servidor e o cliente (website). 
-Verificamos se o website ainda está conectado ao nosso servidor.
+WebSocket between the server and the client (website).
+For now, we use this to check whether the client is still connected to our server.
+TODO: See if we can make this better (somehow)
 '''
 @app.websocket("/ws/web")
 async def websocket_endpoint(websocket: WebSocket):
@@ -147,8 +142,8 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 '''
-Se o website perder a conexão do WebSocket não-intencionalmente, ele irá fazer um fetch neste endpoint aqui.
-O arquivo .csv do treino é lido e os dados 'perdidos' são retornados.
+If the website unintentionally loses connection to this WebSocket, it'll do a fetch on this endpoint.
+The .csv file of the session is read from the time of recovery and the lost data is returned.
 '''
 @app.get("/recovery")
 async def recover_data(recover_from_time: int):
