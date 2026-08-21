@@ -1,12 +1,31 @@
 # Heart Monitor (Wear OS + Server)
 
 ## Overview
-A Wear OS application paired with a FastAPI backend for prototyping heart-monitoring behavior and device-server interactions. The Kotlin app runs on a Wear OS device (or emulator) to collect hardware sensor data, while the Python server provides local HTTP/WebSocket endpoints to process the telemetry during development. The data of every training session is saved locally on a .csv file.
+A Wear OS application paired with a FastAPI backend for prototyping heart-monitoring behavior and device-server interactions. The Kotlin app runs on a Wear OS device (or emulator) to collect hardware sensor data, while the Python server provides local HTTP/WebSocket endpoints to process the telemetry during development.
 
 ## Tech Stack
 * **Client (Wear OS):** Kotlin, Android Jetpack, Wear OS UI libraries
+* **Client (Web Frontend):** JavaScript, Chart.js library
 * **Server:** Python 3.8+, FastAPI, Uvicorn
 * **Build System:** Gradle
+
+## Key Features
+* **Direct Sensor Access:** Bypasses standard high-level health APIs to read directly from the Wear OS PPG hardware, preventing conflicts with native apps like Samsung Health.
+* **Battery-Optimized Telemetry:** Implements configurable data batching to minimize strain on the smartwatch, preserving battery life during long sessions.
+* **WebSocket-based approach:** Features a network layer with auto-reconnection logic, explicit state handling, and connection drop recovery. 
+* **Data Recovery:** If the frontend disconnects, the server buffers the data locally to a `.csv` file. Upon reconnection, the client seamlessly fetches the missing timeframe and synchronizes the real-time chart.
+* **Fluid UI & Live Dashboard:** Utilizes a custom display queue to render data smoothly on a Chart.js graph, masking network latency.
+* **Local Data Ownership:** All telemetry is written asynchronously to local disk as flat `.csv` files, ensuring complete data privacy and easy import into the website for later statistical analysis.
+
+## System Architecture
+The system is built on a highly decoupled, event-driven architecture:
+1. **Hardware Layer:** `SensorManager` reads raw BPM via hardware sensors.
+2. **Wear OS Client:** Batches data and transmits via an OkHttp WebSocket connection over Wi-Fi.
+3. **FastAPI Backend:** Acts as the middleman between the Wear OS Client and the Web Frontend and does asynchronous CSV writing.
+4. **Web Frontend:** Consumes the WebSocket stream, plotting the heart rate graph in real-time.
+
+## Motivation & Use Case
+This project begun as a personal project, for my own usage. I like to train on an ergometric bike and, as i'm doing so, it's pleasant to watch something on my computer's main monitor. However, it's kind of annoying to keep turning on my watch to check my heart rate, so i decided that having a dashboard on my second monitor show real-time heart rate data would be cool, and as a bonus it would also serve as an introduction to the world of mobile // Kotlin development.
 
 ---
 
