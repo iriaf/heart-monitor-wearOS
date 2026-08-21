@@ -14,5 +14,5 @@
 .cxx
 local.properties
 /server/data/*
-!/server/data/.gitkeep
+!/server/data/TRACKING_DATA_EXAMPLE.csv
 /server/__pycache__/

@@ -24,8 +24,8 @@ The system is built on a highly decoupled, event-driven architecture:
 3. **FastAPI Backend:** Acts as the middleman between the Wear OS Client and the Web Frontend and does asynchronous CSV writing.
 4. **Web Frontend:** Consumes the WebSocket stream, plotting the heart rate graph in real-time.
 
-## Motivation & Use Case
-This project begun as a personal project, for my own usage. I like to train on an ergometric bike and, as i'm doing so, it's pleasant to watch something on my computer's main monitor. However, it's kind of annoying to keep turning on my watch to check my heart rate, so i decided that having a dashboard on my second monitor show real-time heart rate data would be cool, and as a bonus it would also serve as an introduction to the world of mobile // Kotlin development.
+## Motivation
+This project begun as a personal project, for my own usage. I like to train on an ergometric bike and, as i'm doing so, it's convenient to watch some series on my computer's main monitor and keep track of my heart rate. However, it's kind of annoying to keep turning on my watch to check my BPM, so i decided that having a dashboard on my second monitor show real-time heart rate data would be a very cool thing, and as a bonus it would also serve as an introduction to the world of mobile // Kotlin development.
 
 ---
 
@@ -86,11 +86,11 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ### 2. Build & Run the Wear OS App (Frontend)
 The recommended approach is to open the app/ module in Android Studio and run it directly on a physical Wear OS device or emulator.
 
+Alternatively, you can use the Gradle wrapper from the repository root.
+
 In the file `app/src/main/java/com/example/myapplication/service/HeartRateService.kt`, make sure to 
 configure the URL for the WebSocket access, otherwise your watch/emulator will not be able to connect to the server.
 
-
-Alternatively, you can use the Gradle wrapper from the repository root.
 
 Build the debug APK:
 # Unix
@@ -120,10 +120,12 @@ adb reverse tcp:8000 tcp:8000
 ```
 Also, make sure that the device running the server has its firewall profile on the private network.
 
-
 Debugging: Enable logging on both sides to track connection states. Use Android Logcat for the Wear OS app and the Uvicorn console for the FastAPI server.
 
 Flaky Connections: If the app claims to be "connected" but data is not flowing, ensure explicit timeouts and connection checks are properly handled before relying on the server-side state.
+
+An example file `server/data/TRACKING_DATA_EXAMPLE.csv` is provided, containing datapoints from `t = 0` up to `t = 179` seconds for visualization purposes. 
+The data was generated using a Samsung Galaxy Watch 8, intentionally holding my own breath at around `t = 75` up to `t = 140` seconds.
 
 ## TODOs
 - Properly implement debug mode.
