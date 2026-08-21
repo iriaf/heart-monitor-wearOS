@@ -125,7 +125,7 @@ Debugging: Enable logging on both sides to track connection states. Use Android 
 Flaky Connections: If the app claims to be "connected" but data is not flowing, ensure explicit timeouts and connection checks are properly handled before relying on the server-side state.
 
 An example file `server/data/TRACKING_DATA_EXAMPLE.csv` is provided, containing datapoints from `t = 0` up to `t = 179` seconds for visualization purposes. 
-The data was generated using a Samsung Galaxy Watch 8, intentionally holding my own breath at around `t = 75` up to `t = 140` seconds.
+The data was generated using a Samsung Galaxy Watch 8. I intentionally held my own breath from `t = 75` up to `t = 140` seconds.
 
 ## TODOs
 - Properly implement debug mode.
